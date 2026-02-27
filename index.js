@@ -18,8 +18,8 @@ const client = new Client({
 });
 
 // BURAYA KENDİ ID'LERİN
-const STAFF_ROLE_ID = "1476303358494113969";
-const CATEGORY_ID = "1476319633387815124";
+const STAFF_ROLE_ID = "1476645986842447995";
+const CATEGORY_ID = "1476879531049750562";
 
 let ticketCount = {};
 
