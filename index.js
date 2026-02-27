@@ -1,132 +1,128 @@
-const { 
-  Client, 
-  GatewayIntentBits, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  ChannelType, 
-  PermissionsBitField,
+const {
+  Client,
+  GatewayIntentBits,
+  ChannelType,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   EmbedBuilder
 } = require("discord.js");
+
+const STAFF_ROLE_ID = "1476303358494113969";
+const CATEGORY_ID = "1476319633387815124";
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
-const STAFF_ROLE_ID = "1476303358494113969";
-const CATEGORY_ID = "1476319633387815124";
-
-let ticketCount = {};
-
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`${client.user.tag} aktif!`);
 });
 
+
+// Ticket mesajı oluşturma
 client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
+  if (message.content === "!ticket") {
 
-  if (message.content === "!bilet") {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("create_ticket")
+        .setLabel("🎫 Ticket Aç")
+        .setStyle(ButtonStyle.Primary)
+    );
 
-    const embed = new EmbedBuilder()
-      .setTitle("🎫 Destek Sistemi")
-      .setDescription("Destek almak için aşağıdaki butona bas.")
-      .setColor("Green");
-
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId("create_ticket")
-          .setLabel("🎫 Bilet Aç")
-          .setStyle(ButtonStyle.Success)
-      );
-
-    await message.channel.send({ embeds: [embed], components: [row] });
+    message.channel.send({
+      content: "Destek almak için butona basın.",
+      components: [row]
+    });
   }
 });
 
+
+// Buton sistemi
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
 
-  const user = interaction.user;
-  const guild = interaction.guild;
-
-  // 🎫 BİLET OLUŞTUR
+  // Ticket oluştur
   if (interaction.customId === "create_ticket") {
 
-    if (!ticketCount[user.id]) ticketCount[user.id] = 1;
-    else ticketCount[user.id]++;
+    const existing = interaction.guild.channels.cache.find(
+      c => c.name === `ticket-${interaction.user.id}`
+    );
 
-    const channelName = `bilet-${user.username}-${ticketCount[user.id]}`;
+    if (existing) {
+      return interaction.reply({ content: "Zaten açık ticketin var!", ephemeral: true });
+    }
 
-    const channel = await guild.channels.create({
-      name: channelName,
+    const channel = await interaction.guild.channels.create({
+      name: `ticket-${interaction.user.id}`,
       type: ChannelType.GuildText,
       parent: CATEGORY_ID,
       permissionOverwrites: [
         {
-          id: guild.roles.everyone.id,
-          deny: [PermissionsBitField.Flags.ViewChannel],
+          id: interaction.guild.id,
+          deny: [PermissionFlagsBits.ViewChannel]
         },
         {
-          id: user.id,
+          id: interaction.user.id,
           allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages],
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages
+          ]
         },
         {
           id: STAFF_ROLE_ID,
           allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages],
-        },
-      ],
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages
+          ]
+        }
+      ]
     });
 
-    const closeButton = new ActionRowBuilder().addComponents(
+    const closeRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("request_close")
+        .setCustomId("close_ticket")
         .setLabel("🔒 Kapat")
         .setStyle(ButtonStyle.Danger)
     );
 
+    const embed = new EmbedBuilder()
+      .setColor("Yellow")
+      .setTitle("🎫 Ticket Açıldı")
+      .setDescription(`Hoşgeldin ${interaction.user}\nYetkililer seninle ilgilenecek.`);
+
     await channel.send({
-      content: `🎫 Hoşgeldin ${user}\nYetkililer seninle ilgilenecek.`,
-      components: [closeButton]
+      content: `<@&${STAFF_ROLE_ID}>`,
+      embeds: [embed],
+      components: [closeRow]
     });
 
-    await interaction.reply({ content: "✅ Bilet oluşturuldu!", ephemeral: true });
+    interaction.reply({ content: `Ticket oluşturuldu: ${channel}`, ephemeral: true });
   }
 
-  // 🔒 KAPAT BUTONU (TICKET TOOL MANTIĞI)
-  if (interaction.customId === "request_close") {
+  // Ticket kapatma
+  if (interaction.customId === "close_ticket") {
 
-    // Eğer yetkiliyse direkt kapat
-    if (interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+    await interaction.reply("Ticket kapatılıyor...");
 
-      await interaction.reply({ 
-        content: "🛑 Bilet kapatılıyor...", 
-        ephemeral: false 
-      });
+    const embed = new EmbedBuilder()
+      .setColor("Red")
+      .setDescription(`🔒 Ticket Closed by ${interaction.user}`);
 
-      setTimeout(() => {
-        interaction.channel.delete().catch(() => {});
-      }, 2000);
+    await interaction.channel.send({ embeds: [embed] });
 
-    } else {
-
-      // Üye ise sadece talep gönder
-      await interaction.reply({ 
-        content: "📩 Kapatma talebi gönderildi. Yetkililer onaylayınca kapanacaktır.", 
-        ephemeral: true 
-      });
-
-      interaction.channel.send("⚠️ Bu bilet için kapatma talebi gönderildi. Yetkililer onaylayabilir.");
-    }
+    setTimeout(() => {
+      interaction.channel.delete().catch(() => {});
+    }, 5000);
   }
+
 });
 
-client.login(process.env.TOKEN);
+client.login("BURAYA_TOKEN");
