@@ -17,7 +17,7 @@ const client = new Client({
   ]
 });
 
-const TOKEN = process.env.TOKEN;
+client.login(process.env.TOKEN);
 const STAFF_ROLE_ID = "1476303358494113969";
 const CATEGORY_ID = "1476319633387815124";
 
