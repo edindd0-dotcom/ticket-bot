@@ -17,7 +17,7 @@ const client = new Client({
   ]
 });
 
-client.login(process.env.TOKEN);
+// BURAYA KENDİ ID'LERİN
 const STAFF_ROLE_ID = "1476303358494113969";
 const CATEGORY_ID = "1476319633387815124";
 
@@ -28,37 +28,40 @@ client.once("ready", () => {
 });
 
 client.on("messageCreate", async (message) => {
-  if (message.content === "!ticket") {
+  if (message.author.bot) return;
+
+  if (message.content === "!bilet") {
 
     const embed = new EmbedBuilder()
       .setTitle("🎫 Destek Sistemi")
-      .setDescription("Ticket açmak için aşağıdaki butona bas.")
+      .setDescription("Destek almak için aşağıdaki butona bas.")
       .setColor("Green");
 
     const row = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
           .setCustomId("create_ticket")
-          .setLabel("🎫 Ticket Aç")
+          .setLabel("🎫 Bilet Aç")
           .setStyle(ButtonStyle.Success)
       );
 
-    message.channel.send({ embeds: [embed], components: [row] });
+    await message.channel.send({ embeds: [embed], components: [row] });
   }
 });
 
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
 
-  if (interaction.customId === "create_ticket") {
+  const user = interaction.user;
+  const guild = interaction.guild;
 
-    const user = interaction.user;
-    const guild = interaction.guild;
+  // BİLET OLUŞTUR
+  if (interaction.customId === "create_ticket") {
 
     if (!ticketCount[user.id]) ticketCount[user.id] = 1;
     else ticketCount[user.id]++;
 
-    const channelName = `${user.username}-${ticketCount[user.id]}`;
+    const channelName = `bilet-${user.username}-${ticketCount[user.id]}`;
 
     const channel = await guild.channels.create({
       name: channelName,
@@ -66,7 +69,7 @@ client.on("interactionCreate", async (interaction) => {
       parent: CATEGORY_ID,
       permissionOverwrites: [
         {
-          id: guild.roles.everyone,
+          id: guild.roles.everyone.id,
           deny: [PermissionsBitField.Flags.ViewChannel],
         },
         {
@@ -90,21 +93,29 @@ client.on("interactionCreate", async (interaction) => {
       .addComponents(
         new ButtonBuilder()
           .setCustomId("close_ticket")
-          .setLabel("❌ Ticket Kapat")
+          .setLabel("❌ Bileti Kapat")
           .setStyle(ButtonStyle.Danger)
       );
 
     await channel.send({
-      content: `🎫 Hoşgeldin ${user}, yetkililer seninle ilgilenecek.`,
+      content: `🎫 Hoşgeldin ${user}, yetkililer yakında seninle ilgilenecek.`,
       components: [closeButton]
     });
 
-    await interaction.reply({ content: "Ticket oluşturuldu!", ephemeral: true });
+    await interaction.reply({ 
+      content: "✅ Bilet oluşturuldu!", 
+      ephemeral: true 
+    });
   }
 
+  // BİLET KAPAT
   if (interaction.customId === "close_ticket") {
-    await interaction.channel.delete();
+    await interaction.reply({ content: "⏳ Bilet kapatılıyor...", ephemeral: true });
+    setTimeout(() => {
+      interaction.channel.delete().catch(() => {});
+    }, 2000);
   }
 });
 
-client.login(TOKEN);
+// SADECE 1 LOGIN OLACAK
+client.login(process.env.TOKEN);
