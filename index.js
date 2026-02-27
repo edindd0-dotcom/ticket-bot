@@ -75,74 +75,57 @@ client.on("interactionCreate", async (interaction) => {
           id: user.id,
           allow: [
             PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-          ],
+            PermissionsBitField.Flags.SendMessages],
         },
         {
           id: STAFF_ROLE_ID,
           allow: [
             PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-          ],
+            PermissionsBitField.Flags.SendMessages],
         },
       ],
     });
 
-    const buttons = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId("user_close")
-          .setLabel("🔒 Kapat")
-          .setStyle(ButtonStyle.Secondary),
-
-        new ButtonBuilder()
-          .setCustomId("staff_close")
-          .setLabel("🛑 Komple Kapat")
-          .setStyle(ButtonStyle.Danger)
-      );
+    const closeButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("request_close")
+        .setLabel("🔒 Kapat")
+        .setStyle(ButtonStyle.Danger)
+    );
 
     await channel.send({
       content: `🎫 Hoşgeldin ${user}\nYetkililer seninle ilgilenecek.`,
-      components: [buttons]
+      components: [closeButton]
     });
 
-    await interaction.reply({ 
-      content: "✅ Bilet oluşturuldu!", 
-      ephemeral: true 
-    });
+    await interaction.reply({ content: "✅ Bilet oluşturuldu!", ephemeral: true });
   }
 
-  // 👤 ÜYE KAPAT
-  if (interaction.customId === "user_close") {
+  // 🔒 KAPAT BUTONU (TICKET TOOL MANTIĞI)
+  if (interaction.customId === "request_close") {
 
-    await interaction.reply({ 
-      content: "⏳ Bilet kapatılıyor...", 
-      ephemeral: true 
-    });
+    // Eğer yetkiliyse direkt kapat
+    if (interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
 
-    setTimeout(() => {
-      interaction.channel.delete().catch(() => {});
-    }, 2000);
-  }
+      await interaction.reply({ 
+        content: "🛑 Bilet kapatılıyor...", 
+        ephemeral: false 
+      });
 
-  // 👮 YETKİLİ KOMPLE KAPAT
-  if (interaction.customId === "staff_close") {
+      setTimeout(() => {
+        interaction.channel.delete().catch(() => {});
+      }, 2000);
 
-    if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-      return interaction.reply({ 
-        content: "❌ Bu butonu sadece yetkililer kullanabilir.", 
+    } else {
+
+      // Üye ise sadece talep gönder
+      await interaction.reply({ 
+        content: "📩 Kapatma talebi gönderildi. Yetkililer onaylayınca kapanacaktır.", 
         ephemeral: true 
       });
+
+      interaction.channel.send("⚠️ Bu bilet için kapatma talebi gönderildi. Yetkililer onaylayabilir.");
     }
-
-    await interaction.reply({ 
-      content: "🛑 Yetkili tarafından kapatılıyor...", 
-      ephemeral: true 
-    });
-
-    setTimeout(() => {
-      interaction.channel.delete().catch(() => {});
-    }, 2000);
   }
 });
 
