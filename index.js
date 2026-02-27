@@ -17,7 +17,6 @@ const client = new Client({
   ]
 });
 
-// BURAYA KENDİ ID'LERİN
 const STAFF_ROLE_ID = "1476303358494113969";
 const CATEGORY_ID = "1476319633387815124";
 
@@ -55,7 +54,7 @@ client.on("interactionCreate", async (interaction) => {
   const user = interaction.user;
   const guild = interaction.guild;
 
-  // BİLET OLUŞTUR
+  // 🎫 BİLET OLUŞTUR
   if (interaction.customId === "create_ticket") {
 
     if (!ticketCount[user.id]) ticketCount[user.id] = 1;
@@ -89,17 +88,22 @@ client.on("interactionCreate", async (interaction) => {
       ],
     });
 
-    const closeButton = new ActionRowBuilder()
+    const buttons = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
-          .setCustomId("close_ticket")
-          .setLabel("❌ Bileti Kapat")
+          .setCustomId("user_close")
+          .setLabel("🔒 Kapat")
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId("staff_close")
+          .setLabel("🛑 Komple Kapat")
           .setStyle(ButtonStyle.Danger)
       );
 
     await channel.send({
-      content: `🎫 Hoşgeldin ${user}, yetkililer yakında seninle ilgilenecek.`,
-      components: [closeButton]
+      content: `🎫 Hoşgeldin ${user}\nYetkililer seninle ilgilenecek.`,
+      components: [buttons]
     });
 
     await interaction.reply({ 
@@ -108,14 +112,38 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // BİLET KAPAT
-  if (interaction.customId === "close_ticket") {
-    await interaction.reply({ content: "⏳ Bilet kapatılıyor...", ephemeral: true });
+  // 👤 ÜYE KAPAT
+  if (interaction.customId === "user_close") {
+
+    await interaction.reply({ 
+      content: "⏳ Bilet kapatılıyor...", 
+      ephemeral: true 
+    });
+
+    setTimeout(() => {
+      interaction.channel.delete().catch(() => {});
+    }, 2000);
+  }
+
+  // 👮 YETKİLİ KOMPLE KAPAT
+  if (interaction.customId === "staff_close") {
+
+    if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+      return interaction.reply({ 
+        content: "❌ Bu butonu sadece yetkililer kullanabilir.", 
+        ephemeral: true 
+      });
+    }
+
+    await interaction.reply({ 
+      content: "🛑 Yetkili tarafından kapatılıyor...", 
+      ephemeral: true 
+    });
+
     setTimeout(() => {
       interaction.channel.delete().catch(() => {});
     }, 2000);
   }
 });
 
-// SADECE 1 LOGIN OLACAK
 client.login(process.env.TOKEN);
