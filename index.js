@@ -114,7 +114,7 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.message.delete().catch(() => {});
 
     const controlRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("reopen").setLabel("Aç").setEmoji("🔓").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("reopen").setLabel("Aç Fixlenecek").setEmoji("🔓").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("delete_ticket").setLabel("Sil").setEmoji("⛔").setStyle(ButtonStyle.Danger)
     );
 
