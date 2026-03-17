@@ -19,12 +19,13 @@ const client = new Client({
   ]
 });
 
-// --- AYARLARIN (Burası senin verdiğin ID'ler) ---
+// --- AYARLARIN ---
 const STAFF_ROLE_ID = "1482883734817603785"; 
 const CATEGORY_ID = "1482906193935597751";
+const TICKET_LIMIT = 2; // Bilet limitini buradan ayarlayabilirsin
 
 client.once("ready", () => {
-  console.log(`${client.user.tag} Bilet Sistemi v3 Aktif!`);
+  console.log(`${client.user.tag} Bilet Sistemi v3.1 (2 Limitli) Aktif!`);
 });
 
 // ANA PANEL KOMUTU
@@ -32,7 +33,7 @@ client.on("messageCreate", async (message) => {
   if (message.content === "!bilet") {
     const mainEmbed = new EmbedBuilder()
       .setTitle("Bilet Sistemi")
-      .setDescription("Yardım almak için aşağıdaki butona basarak bilet açabilirsiniz.")
+      .setDescription("Yardım almak için aşağıdaki butona basarak bilet açabilirsiniz.\n\n*Not: Aynı anda en fazla 2 bilet açabilirsiniz.*")
       .setColor("#2ecc71")
       .setFooter({ text: "TicketTool Tasarımı" });
 
@@ -48,13 +49,18 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
   const { guild, user, channel } = interaction;
 
-  // 1. BİLET OLUŞTURMA (LİMİTLİ)
+  // 1. BİLET OLUŞTURMA (2 Limitli)
   if (interaction.customId === "create_ticket") {
     const category = guild.channels.cache.get(CATEGORY_ID);
-    const hasTicket = category.children.cache.find(c => c.topic === user.id);
+    
+    // Kullanıcının bu kategoride kaç tane bileti (kanalı) olduğunu sayıyoruz
+    const userTickets = category.children.cache.filter(c => c.topic === user.id);
 
-    if (hasTicket) {
-      return interaction.reply({ content: `❌ Zaten bir biletin var: <#${hasTicket.id}>`, ephemeral: true });
+    if (userTickets.size >= TICKET_LIMIT) {
+      return interaction.reply({ 
+        content: `❌ Zaten ${TICKET_LIMIT} adet açık biletin var. Yeni bir tane açmak için eskilerini kapatıp sildirmen gerekir.`, 
+        ephemeral: true 
+      });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -84,10 +90,13 @@ client.on("interactionCreate", async (interaction) => {
       });
 
       await interaction.editReply({ content: "Biletin açıldı!" });
-    } catch (e) { await interaction.editReply("Bilet oluşturulurken hata oluştu!"); }
+    } catch (e) { 
+      console.log(e);
+      await interaction.editReply("Bilet oluşturulurken hata oluştu!"); 
+    }
   }
 
-  // 2. KAPATMA TALEBİ VE DM GÖNDERME
+  // 2. KAPATMA TALEBİ
   if (interaction.customId === "close_request") {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("confirm_close").setLabel("Kapat").setStyle(ButtonStyle.Danger),
@@ -103,7 +112,6 @@ client.on("interactionCreate", async (interaction) => {
     if (ownerId) {
       await channel.permissionOverwrites.edit(ownerId, { ViewChannel: false }).catch(() => {});
       
-      // DM'DEN GERİ AÇMA BUTONU GÖNDER
       const dmRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`reopen_${guild.id}_${channel.id}`).setLabel("Bileti Geri Aç").setEmoji("🔓").setStyle(ButtonStyle.Success)
       );
@@ -122,7 +130,7 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // 3. GERİ AÇMA (DM ve SUNUCU İÇİ)
+  // 3. GERİ AÇMA
   if (interaction.customId === "reopen_staff" || interaction.customId.startsWith("reopen_")) {
     let targetChannel = channel;
     let targetGuild = guild;
