@@ -35,7 +35,7 @@ client.on("messageCreate", async (message) => {
       .setTitle("Bilet Sistemi")
       .setDescription("Yardım almak için aşağıdaki butona basarak bilet açabilirsiniz.\n\n*Not: Aynı anda en fazla 2 bilet açabilirsiniz.*")
       .setColor("#2ecc71")
-      .setFooter({ text: "TicketTool Tasarımı" });
+      .setFooter({ text: "bot by: carl" });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("create_ticket").setLabel("Bilet oluştur").setEmoji("📩").setStyle(ButtonStyle.Secondary)
