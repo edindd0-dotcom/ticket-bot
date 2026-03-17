@@ -14,25 +14,26 @@ const client = new Client({
     GatewayIntentBits.Guilds, 
     GatewayIntentBits.GuildMessages, 
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers // Intent'lerin açık olması şart!
+    GatewayIntentBits.GuildMembers
   ]
 });
 
+// SENİN ID'LERİN
 const STAFF_ROLE_ID = "1482883734817603785"; 
 const CATEGORY_ID = "1482906193935597751";
 
 client.once("ready", () => {
-  console.log(`${client.user.tag} Bilet Sistemi Hazır!`);
+  console.log(`${client.user.tag} Bilet Sistemi (V2) Aktif!`);
 });
 
-// PANEL OLUŞTURMA
+// ANA PANEL KOMUTU: !bilet
 client.on("messageCreate", async (message) => {
   if (message.content === "!bilet") {
     const mainEmbed = new EmbedBuilder()
       .setTitle("Bilet Sistemi")
-      .setDescription("Destek talebi oluşturmak için aşağıdaki butona basın.")
+      .setDescription("Yardıma mı ihtiyacınız var? Aşağıdaki butona basarak bir bilet oluşturabilirsiniz.")
       .setColor("#2ecc71")
-      .setFooter({ text: "TicketTool Tasarımı" });
+      .setFooter({ text: "TicketTool Sistemi" });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -50,9 +51,15 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
   const { guild, user, channel } = interaction;
 
-  // 1. BİLET OLUŞTURMA (Hata korumalı)
+  // 1. BİLET OLUŞTURMA (LİMİTLİ)
   if (interaction.customId === "create_ticket") {
-    // "Etkileşim başarısız" hatasını önlemek için hemen yanıt veriyoruz
+    const category = guild.channels.cache.get(CATEGORY_ID);
+    const alreadyHasTicket = category.children.cache.find(c => c.topic === user.id);
+
+    if (alreadyHasTicket) {
+      return interaction.reply({ content: `❌ Zaten açık bir biletiniz var: <#${alreadyHasTicket.id}>`, ephemeral: true });
+    }
+
     await interaction.deferReply({ ephemeral: true });
 
     try {
@@ -71,7 +78,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const welcomeEmbed = new EmbedBuilder()
         .setAuthor({ name: `${user.username} Hoş Geldin`, iconURL: user.displayAvatarURL() })
-        .setDescription("Yetkililer kısa süre içinde burada olacaktır.\nKapatmak için butona basın.")
+        .setDescription("Yetkililer kısa süre içinde burada olacaktır.\nKapatmak için aşağıdaki butona basın.")
         .setColor("#2ecc71");
 
       const row = new ActionRowBuilder().addComponents(
@@ -79,15 +86,14 @@ client.on("interactionCreate", async (interaction) => {
       );
 
       await ticketChannel.send({ content: `<@${user.id}> Hoş Geldin`, embeds: [welcomeEmbed], components: [row] });
-      await interaction.editReply({ content: `Bilet açıldı: <#${ticketChannel.id}>` });
+      await interaction.editReply({ content: `Biletin oluşturuldu: <#${ticketChannel.id}>` });
 
     } catch (e) {
-      console.error(e);
-      await interaction.editReply({ content: "Bilet oluşturulurken bir hata oluştu. Kategori ID'sini kontrol et!" });
+      await interaction.editReply("Bilet oluşturulurken bir hata oluştu. Lütfen yetkileri kontrol edin.");
     }
   }
 
-  // 2. KAPATMA İŞLEMİ
+  // 2. KAPATMA ONAYI
   if (interaction.customId === "close_request") {
     const confirmRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("confirm_close").setLabel("Kapat").setStyle(ButtonStyle.Danger),
@@ -96,17 +102,16 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.reply({ content: "Bu bileti kapatmak istediğinizden emin misiniz?", components: [confirmRow] });
   }
 
-  // 3. ONAY VE ERİŞİM KESME
+  // 3. BİLETİ KAPAT (ÜYEYİ SİSTEMDEN ÇIKAR)
   if (interaction.customId === "confirm_close") {
-    if (channel.name.startsWith("kapalı-")) return;
-    await interaction.message.delete().catch(() => {});
-    
+    await interaction.deferUpdate();
     const ownerId = channel.topic;
+
     if (ownerId) {
       await channel.permissionOverwrites.edit(ownerId, { ViewChannel: false }).catch(() => {});
     }
 
-    await channel.setName(`kapalı-${channel.name}`);
+    await interaction.message.delete().catch(() => {});
 
     const controlRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("reopen").setLabel("Aç").setEmoji("🔓").setStyle(ButtonStyle.Secondary),
@@ -122,9 +127,40 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
+  // 4. BİLETİ GERİ AÇ (ÜYEYİ GERİ AL)
+  if (interaction.customId === "reopen") {
+    await interaction.deferUpdate();
+    const ownerId = channel.topic;
+
+    if (ownerId) {
+      await channel.permissionOverwrites.edit(ownerId, { 
+        ViewChannel: true, 
+        SendMessages: true, 
+        ReadMessageHistory: true 
+      });
+
+      await interaction.message.delete().catch(() => {});
+
+      const reopenEmbed = new EmbedBuilder()
+        .setDescription(`🔓 Bilet <@${user.id}> tarafından tekrar açıldı!`)
+        .setColor("#2ecc71");
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("close_request").setLabel("Kapat").setEmoji("🔒").setStyle(ButtonStyle.Secondary)
+      );
+
+      await channel.send({ embeds: [reopenEmbed], components: [row] });
+    }
+  }
+
+  // 5. İPTAL VE SİLME
+  if (interaction.customId === "cancel_close") {
+    await interaction.message.delete().catch(() => {});
+  }
+
   if (interaction.customId === "delete_ticket") {
-    await interaction.reply("Bilet siliniyor...");
-    setTimeout(() => channel.delete().catch(() => {}), 3000);
+    await interaction.reply("Bilet 5 saniye içinde kalıcı olarak siliniyor...");
+    setTimeout(() => channel.delete().catch(() => {}), 5000);
   }
 });
 
