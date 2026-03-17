@@ -35,8 +35,8 @@ client.on("messageCreate", async (message) => {
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("create_ticket")
-        .setLabel("Create ticket")
+        .setCustomId("bilet_aç")
+        .setLabel("Bilet Aç!")
         .setEmoji("📩")
         .setStyle(ButtonStyle.Secondary)
     );
