@@ -23,16 +23,16 @@ const STAFF_ROLE_ID = "1482883734817603785";
 const CATEGORY_ID = "1482906193935597751";
 
 client.once("ready", () => {
-  console.log(`${client.user.tag} Hazır! Kapatınca silme modu aktif.`);
+  console.log(`${client.user.tag} Bilet Sistemi Baştan Kuruldu!`);
 });
 
-// PANEL KOMUTU
+// PANEL: !bilet
 client.on("messageCreate", async (message) => {
   if (message.content === "!bilet") {
     const mainEmbed = new EmbedBuilder()
-      .setTitle("Bilet Sistemi")
-      .setDescription("Yeni bir destek talebi oluşturmak için aşağıdaki butona basın.")
-      .setColor("#3498db");
+      .setTitle("Destek Merkezi")
+      .setDescription("Bizimle iletişime geçmek için lütfen bilet açın.")
+      .setColor("#2f3136");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("create_ticket").setLabel("Bilet oluştur").setEmoji("📩").setStyle(ButtonStyle.Secondary)
@@ -46,15 +46,12 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
   const { guild, user, channel } = interaction;
 
-  // 1. YENİ BİLET AÇMA
+  // 1. BİLET AÇMA
   if (interaction.customId === "create_ticket") {
-    // Kategori içindeki bilet kontrolü (1 Limit)
     const category = guild.channels.cache.get(CATEGORY_ID);
-    const existingTicket = category.children.cache.find(c => c.topic === user.id);
+    const existing = category.children.cache.find(c => c.topic === user.id);
 
-    if (existingTicket) {
-      return interaction.reply({ content: `❌ Zaten açık bir biletiniz var: <#${existingTicket.id}>`, ephemeral: true });
-    }
+    if (existing) return interaction.reply({ content: "Zaten açık bir biletin var!", ephemeral: true });
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -71,32 +68,56 @@ client.on("interactionCreate", async (interaction) => {
 
     await ticketChannel.setTopic(user.id);
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("close_now").setLabel("Bileti Kapat ve Sil").setEmoji("🔒").setStyle(ButtonStyle.Danger)
+    const welcomeRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("close_ask").setLabel("Kapat").setEmoji("🔒").setStyle(ButtonStyle.Secondary)
     );
 
     await ticketChannel.send({ 
       content: `<@${user.id}> Hoş Geldin`, 
-      embeds: [new EmbedBuilder().setDescription("Sorununuzu yazın, işiniz bitince aşağıdaki butona basarak bileti kapatabilirsiniz.").setColor("#3498db")],
-      components: [row]
+      embeds: [new EmbedBuilder().setDescription("Yetkililer kısa süre içinde sizinle ilgilenecektir.").setColor("#2f3136")],
+      components: [welcomeRow]
     });
 
-    await interaction.editReply({ content: "Biletin başarıyla açıldı!" });
+    await interaction.editReply({ content: "Biletin açıldı!" });
   }
 
-  // 2. KAPAT VE ANINDA SİL
-  if (interaction.customId === "close_now") {
-    await interaction.reply({ content: "Bilet kapatılıyor ve 3 saniye içinde siliniyor..." });
-    
-    // 3 saniye bekle ve kanalı tamamen yok et
-    setTimeout(async () => {
-      try {
-        await channel.delete();
-      } catch (e) {
-        console.log("Kanal silinirken hata oluştu.");
-      }
-    }, 3000);
+  // 2. KAPATMA SORUSU (ONAY)
+  if (interaction.customId === "close_ask") {
+    const confirmRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("confirm_close").setLabel("Kapat").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("cancel_close").setLabel("İptal").setStyle(ButtonStyle.Secondary)
+    );
+    await interaction.reply({ content: "Bileti kapatmak istediğine emin misin?", components: [confirmRow] });
   }
-});
 
-client.login(process.env.TOKEN);
+  // 3. BİLETİ KAPAT (ÜYEYİ AT VE YETKİLİ PANELİ AT)
+  if (interaction.customId === "confirm_close") {
+    // Çift mesaj engelleme kontrolü
+    if (channel.name.startsWith("kapalı-")) return;
+
+    await interaction.deferUpdate();
+    const ownerId = channel.topic;
+
+    if (ownerId) {
+      await channel.permissionOverwrites.edit(ownerId, { ViewChannel: false }).catch(() => {});
+    }
+
+    await interaction.message.delete().catch(() => {});
+    await channel.setName(`kapalı-${channel.name}`);
+
+    const controlRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("delete_now").setLabel("Sil").setEmoji("⛔").setStyle(ButtonStyle.Danger)
+    );
+
+    await channel.send({ 
+      embeds: [
+        new EmbedBuilder().setDescription(`Bilet <@${user.id}> tarafından kapatıldı.`).setColor("#f1c40f"),
+        new EmbedBuilder().setDescription("
+http://googleusercontent.com/immersive_entry_chip/0
+
+### Neler Değişti ve Neden Daha İyi?
+* **Üst Üste Binme Yok:** `kapalı-` kontrolü sayesinde bilet bir kez kapandıysa butonlara tekrar basıldığında aynı panelleri defalarca atmaz.
+* **Güvenli Kapatma:** Bilet anında silinmez. Önce üye dışarı atılır (kanalı göremez hale gelir), ardından kanal yetkililerde kalır. Yetkili "Sil" dediğinde kanal temizlenir.
+* **Hız Kontrolü:** 3 saniyelik o hızlı silme işlemini daha kontrollü ve mesajlı hale getirdim.
+
+Bu kod şu an en "temiz" çalışan versiyon. Bunu kurduktan sonra istersen üzerine görsel eklemeler yapabiliriz. Denemek ister misin?
