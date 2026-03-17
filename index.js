@@ -18,7 +18,7 @@ const client = new Client({
 });
 
 // AYARLARIN (Burası senin verdiğin ID'ler)
-const STAFF_ROLE_ID = "1476645986842447995";
+const STAFF_ROLE_ID = "1482883734817603785";
 const CATEGORY_ID = "1482906193935597751";
 
 let ticketCount = {};
